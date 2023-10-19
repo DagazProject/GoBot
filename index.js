@@ -15,10 +15,11 @@ const STATE = {
     RECO: 6,
     GETM: 7,
     RQST: 8,
-    LERN: 9
+    LERN: 9,
+    CLOS: 10
 };
 
-const SERVICE  = 'http://127.0.0.1:3000';
+const SERVICE  = 'https://127.0.0.1:3000';
 const USERNAME = 'GoBot';
 const PASSWORD = 'GoBot';
 
@@ -105,6 +106,23 @@ let recovery = function(app) {
       return true;
 }
     
+let closeSession = function(app) {
+    console.log('CLOS');
+    app.state = STATE.WAIT;
+    axios.post(SERVICE + '/api/session/close', {
+        id: sid
+    }, {
+        headers: { Authorization: `Bearer ${TOKEN}` }
+    }).then(function (response) {
+        app.state = STATE.MOVE;
+    }).catch(function (error) {
+      console.log('TURN ERROR: ' + error);
+        logger.error('TURN ERROR: ' + error);
+        app.state  = STATE.INIT;
+      });
+      return true;
+}
+
 let getConfirmed = function(app) {
     //  console.log('GETM');
     app.state = STATE.WAIT;
@@ -112,8 +130,12 @@ let getConfirmed = function(app) {
         headers: { Authorization: `Bearer ${TOKEN}` }
     })
     .then(function (response) {
-//      console.log(response.data);
-        app.state = STATE.MOVE;
+        if ((response.data.length > 0) && response.data[0].result_id) {
+            console.log(response.data);
+            app.state = STATE.CLOS;
+        } else {
+            app.state = STATE.MOVE;
+        }
     })
     .catch(function (error) {
         console.log('GETM ERROR: ' + error);
@@ -330,6 +352,7 @@ app.states[STATE.RECO] = recovery;
 app.states[STATE.GETM] = getConfirmed;
 app.states[STATE.RQST] = request;
 app.states[STATE.LERN] = learn;
+app.states[STATE.CLOS] = closeSession;
 
 joseki.create();
 
